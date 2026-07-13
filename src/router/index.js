@@ -8,8 +8,34 @@ import CompanyView from '../views/CompanyView.vue'
 const routes = [
   { path: '/', name: 'home', component: HomeView },
   { path: '/login', name: 'login', component: LoginView },
-  { path: '/dashboard', name: 'dashboard', component: DashboardView, meta: { requiresAuth: true } },
-  { path: '/company/:id', name: 'company', component: CompanyView, meta: { requiresAuth: true } },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: DashboardView,
+    meta: { requiresAuth: true },
+  },
+
+  // Ancienne route conservée pour compatibilité
+  {
+    path: '/company/:id',
+    redirect: (to) => `/companies/${to.params.id}`,
+  },
+
+  // Route entreprise principale
+  {
+    path: '/companies/:id',
+    name: 'company',
+    component: CompanyView,
+    meta: { requiresAuth: true },
+  },
+
+  // Route détail client
+  {
+    path: '/companies/:companyId/clients/:clientId',
+    name: 'client-detail',
+    component: () => import('../views/ClientDetailView.vue'),
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({

@@ -1,326 +1,536 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../lib/supabaseClient'
+import '../styles/CompanyView.css'
 
 const route = useRoute()
 const router = useRouter()
-
 const companyId = route.params.id
 
 const loading = ref(true)
-const saving = ref(false)
+const submitting = ref(false)
+const clients = ref([])
+const company = ref(null)
 const errorMessage = ref('')
 const successMessage = ref('')
+const showCreateModal = ref(false)
 
-const company = ref(null)
-const clients = ref([])
+const isEditing = ref(false)
+const editingClientId = ref(null)
 
 const form = ref({
-  first_name: '',
-  last_name: '',
-  transaction_date: '',
-  amount: '',
-  merchandise: '',
-  merchandise_weight: '',
+  nom: '',
+  prenom: '',
+  date_transaction: '',
+  montant: '',
+  marchandise: '',
+  poids: '',
 })
 
 const idDocumentFile = ref(null)
 const signedContractFile = ref(null)
 
-const loadCompanyAndClients = async () => {
-  loading.value = true
-  errorMessage.value = ''
+const pageTitle = computed(() =>
+  company.value?.name ? `${company.value.name} - Clients` : 'Entreprise'
+)
 
-  try {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError) throw userError
-    if (!user) {
-  company.value = { id: companyId, name: 'Entreprise démo' }
-  clients.value = []
-  loading.value = false
-  return
+const resetForm = () => {
+  form.value = {
+    nom: '',
+    prenom: '',
+    date_transaction: '',
+    montant: '',
+    marchandise: '',
+    poids: '',
+  }
+  idDocumentFile.value = null
+  signedContractFile.value = null
+  isEditing.value = false
+  editingClientId.value = null
 }
 
-    const { data: companyData, error: companyError } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('id', companyId)
-      .eq('user_id', user.id)
-      .single()
+const openCreateModal = () => {
+  showCreateModal.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  isEditing.value = false
+  editingClientId.value = null
+  resetForm()
+}
 
-    if (companyError) throw companyError
+const closeCreateModal = () => {
+  showCreateModal.value = false
+  resetForm()
+}
 
-    company.value = companyData
+const goBack = () => router.push('/dashboard')
 
-    const { data: clientsData, error: clientsError } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false })
+const formatMoney = (value) =>
+  new Intl.NumberFormat('fr-CA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0))
 
-    if (clientsError) throw clientsError
-
-    clients.value = clientsData || []
-  } catch (error) {
-    errorMessage.value = error.message || 'Impossible de charger les données.'
-  } finally {
-    loading.value = false
-  }
+const formatDate = (value) => {
+  if (!value) return '-'
+  return new Date(value).toLocaleDateString('fr-CA')
 }
 
 const handleIdDocumentChange = (event) => {
-  idDocumentFile.value = event.target.files[0] || null
+  idDocumentFile.value = event.target.files?.[0] || null
 }
 
 const handleSignedContractChange = (event) => {
-  signedContractFile.value = event.target.files[0] || null
+  signedContractFile.value = event.target.files?.[0] || null
+}
+
+const fetchCompany = async () => {
+  const { data, error } = await supabase
+    .from('companies')
+    .select('id, name')
+    .eq('id', companyId)
+    .single()
+
+  if (error) throw error
+  company.value = data
+}
+
+const fetchClients = async () => {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  clients.value = data || []
 }
 
 const uploadFile = async (file, folder) => {
   if (!file) return null
 
   const fileExt = file.name.split('.').pop()
-  const filePath = `${folder}/${companyId}/${Date.now()}-${Math.random()
+  const filePath = `${companyId}/${folder}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}.${fileExt}`
 
-  const { error } = await supabase.storage
+  const { error: uploadError } = await supabase.storage
     .from('client-documents')
     .upload(filePath, file, {
       cacheControl: '3600',
       upsert: false,
     })
 
-  if (error) throw error
+  if (uploadError) {
+    throw uploadError
+  }
 
-  const { data } = supabase.storage
-    .from('client-documents')
-    .getPublicUrl(filePath)
-
-  return data.publicUrl
+  return filePath
 }
 
-const resetForm = () => {
+const createClient = async () => {
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  if (!form.value.nom || !form.value.prenom || !form.value.date_transaction) {
+    errorMessage.value = 'Veuillez remplir les champs obligatoires.'
+    return
+  }
+
+  if (!idDocumentFile.value || !signedContractFile.value) {
+    errorMessage.value =
+      'Veuillez ajouter la pièce d’identité et le contrat signé.'
+    return
+  }
+
+  try {
+    submitting.value = true
+
+    const pieceIdentitePath = await uploadFile(idDocumentFile.value, 'ids')
+    const contratSignePath = await uploadFile(signedContractFile.value, 'contracts')
+
+    const payload = {
+      company_id: companyId,
+      nom: form.value.nom.trim(),
+      prenom: form.value.prenom.trim(),
+      date_transaction: form.value.date_transaction,
+      montant: Number(form.value.montant || 0),
+      marchandise: form.value.marchandise.trim(),
+      poids: Number(form.value.poids || 0),
+      piece_identite_path: pieceIdentitePath,
+      contrat_signe_path: contratSignePath,
+    }
+
+    const { error } = await supabase.from('clients').insert(payload)
+
+    if (error) throw error
+
+    successMessage.value = 'Client ajouté avec succès.'
+    await fetchClients()
+    closeCreateModal()
+  } catch (error) {
+    errorMessage.value = error.message || 'Une erreur est survenue.'
+  } finally {
+    submitting.value = false
+  }
+}
+
+const viewClient = (client) => {
+  router.push(`/companies/${companyId}/clients/${client.id}`)
+}
+
+const editClient = (client) => {
+  isEditing.value = true
+  editingClientId.value = client.id
+  showCreateModal.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+
   form.value = {
-    first_name: '',
-    last_name: '',
-    transaction_date: '',
-    amount: '',
-    merchandise: '',
-    merchandise_weight: '',
+    nom: client.nom || '',
+    prenom: client.prenom || '',
+    date_transaction: client.date_transaction
+      ? client.date_transaction.slice(0, 10)
+      : '',
+    montant: client.montant ?? '',
+    marchandise: client.marchandise || '',
+    poids: client.poids ?? '',
   }
 
   idDocumentFile.value = null
   signedContractFile.value = null
 }
 
-const createClient = async () => {
-  successMessage.value = ''
+const updateClient = async () => {
+  if (!editingClientId.value) return
+
   errorMessage.value = ''
+  successMessage.value = ''
 
-  if (
-    !form.value.first_name ||
-    !form.value.last_name ||
-    !form.value.transaction_date ||
-    !form.value.amount ||
-    !form.value.merchandise ||
-    !form.value.merchandise_weight
-  ) {
-    errorMessage.value = 'Veuillez remplir tous les champs obligatoires.'
+  if (!form.value.nom || !form.value.prenom || !form.value.date_transaction) {
+    errorMessage.value = 'Veuillez remplir les champs obligatoires.'
     return
   }
-
-  if (!idDocumentFile.value || !signedContractFile.value) {
-    errorMessage.value = 'Veuillez ajouter la pièce d’identité et le contrat signé.'
-    return
-  }
-
-  saving.value = true
 
   try {
-    const idDocumentUrl = await uploadFile(idDocumentFile.value, 'id-documents')
-    const signedContractUrl = await uploadFile(signedContractFile.value, 'signed-contracts')
+    submitting.value = true
 
-    const payload = {
-      company_id: companyId,
-      first_name: form.value.first_name.trim(),
-      last_name: form.value.last_name.trim(),
-      transaction_date: form.value.transaction_date,
-      amount: Number(form.value.amount),
-      merchandise: form.value.merchandise.trim(),
-      merchandise_weight: Number(form.value.merchandise_weight),
-      id_document_url: idDocumentUrl,
-      signed_contract_url: signedContractUrl,
+    const updatePayload = {
+      nom: form.value.nom.trim(),
+      prenom: form.value.prenom.trim(),
+      date_transaction: form.value.date_transaction,
+      montant: Number(form.value.montant || 0),
+      marchandise: form.value.marchandise.trim(),
+      poids: Number(form.value.poids || 0),
     }
 
-    const { data, error } = await supabase
+    if (idDocumentFile.value) {
+      updatePayload.piece_identite_path = await uploadFile(idDocumentFile.value, 'ids')
+    }
+
+    if (signedContractFile.value) {
+      updatePayload.contrat_signe_path = await uploadFile(
+        signedContractFile.value,
+        'contracts'
+      )
+    }
+
+    const { error } = await supabase
       .from('clients')
-      .insert([payload])
-      .select()
+      .update(updatePayload)
+      .eq('id', editingClientId.value)
+      .eq('company_id', companyId)
 
     if (error) throw error
 
-    if (data && data.length > 0) {
-      clients.value = [data[0], ...clients.value]
-    }
-
-    successMessage.value = 'Client ajouté avec succès.'
-    resetForm()
-  } catch (error) {
-    errorMessage.value = error.message || 'Erreur lors de l’ajout du client.'
+    successMessage.value = 'Client mis à jour avec succès.'
+    await fetchClients()
+    closeCreateModal()
+  } catch (err) {
+    errorMessage.value = err.message || 'Erreur lors de la mise à jour.'
   } finally {
-    saving.value = false
+    submitting.value = false
   }
 }
 
-const goBack = () => {
-  router.push('/dashboard')
+const deleteClient = async (client) => {
+  const confirmDelete = window.confirm(
+    `Supprimer le client ${client.prenom} ${client.nom} ?`
+  )
+  if (!confirmDelete) return
+
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  try {
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', client.id)
+      .eq('company_id', companyId)
+
+    if (error) throw error
+
+    successMessage.value = 'Client supprimé.'
+    await fetchClients()
+  } catch (err) {
+    errorMessage.value = err.message || 'Erreur lors de la suppression.'
+  }
 }
+
+const handleSubmit = async () => {
+  if (isEditing.value) {
+    await updateClient()
+  } else {
+    await createClient()
+  }
+}
+
+onMounted(async () => {
+  try {
+    loading.value = true
+    await fetchCompany()
+    await fetchClients()
+    document.title = pageTitle.value
+  } catch (error) {
+    errorMessage.value = error.message || 'Impossible de charger les données.'
+  } finally {
+    loading.value = false
+  }
+})
 </script>
 
 <template>
-  <main class="company-page">
-    <section class="company-shell">
-      <header class="company-topbar">
-        <div>
-          <button class="back-link" type="button" @click="goBack">
-            Retour au dashboard
+  <main class="company-layout">
+    <section class="company-panel">
+      <header class="company-header-pro">
+        <div class="company-header-left">
+          <button class="back-btn-pro" type="button" @click="goBack">
+            Retour
           </button>
 
-          <p class="dashboard-eyebrow">Gestovia</p>
-          <h1 class="company-title">
-            {{ company?.name || 'Espace entreprise' }}
-          </h1>
-          <p class="company-subtitle">
-            Ajoutez et consultez les dossiers clients liés à cette entreprise.
-          </p>
+          <div>
+            <p class="company-overline">Entreprise</p>
+            <h1 class="company-title-pro">
+              {{ company?.name || 'Chargement...' }}
+            </h1>
+          </div>
+        </div>
+
+        <div class="company-header-right">
+          <div class="header-stat-card">
+            <span class="header-stat-label">Clients</span>
+            <strong class="header-stat-value">{{ clients.length }}</strong>
+          </div>
         </div>
       </header>
 
-      <div v-if="loading" class="dashboard-empty-state">
-        <p>Chargement de l’entreprise...</p>
-      </div>
+      <section class="clients-section-pro">
+        <div class="section-head-pro">
+          <div>
+            <h2>Clients</h2>
+            <p>Gérez les dossiers enregistrés pour cette entreprise.</p>
+          </div>
+        </div>
 
-      <template v-else>
-        <section class="company-form-card">
-          <div class="company-section-head">
+        <p v-if="loading">Chargement...</p>
+
+        <p v-if="errorMessage && !showCreateModal" class="message-error">
+          {{ errorMessage }}
+        </p>
+
+        <div v-if="!loading && clients.length === 0" class="empty-state-pro">
+          <h3>Aucun client</h3>
+          <p>Commencez par ajouter votre premier dossier client avec le bouton +.</p>
+        </div>
+
+        <div v-else-if="!loading" class="table-shell">
+          <table class="clients-table">
+            <thead>
+              <tr>
+                <th>Nom complet</th>
+                <th>Date</th>
+                <th>Montant</th>
+                <th>Marchandise</th>
+                <th>Poids</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr v-for="client in clients" :key="client.id">
+                <td>{{ client.prenom }} {{ client.nom }}</td>
+                <td>{{ formatDate(client.date_transaction) }}</td>
+                <td>{{ formatMoney(client.montant) }}</td>
+                <td>{{ client.marchandise || '-' }}</td>
+                <td>{{ formatMoney(client.poids) }}</td>
+                <td>
+                  <div class="table-actions">
+                    <button
+                      class="table-action-btn"
+                      type="button"
+                      @click="viewClient(client)"
+                    >
+                      Voir
+                    </button>
+                    <button
+                      class="table-action-btn"
+                      type="button"
+                      @click="editClient(client)"
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      class="table-action-btn danger"
+                      type="button"
+                      @click="deleteClient(client)"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <button
+        class="floating-add-btn"
+        type="button"
+        aria-label="Ajouter un client"
+        @click="openCreateModal"
+      >
+        +
+      </button>
+
+      <div
+        v-if="showCreateModal"
+        class="modal-overlay"
+        @click.self="closeCreateModal"
+      >
+        <div class="modal-card">
+          <div class="modal-head">
             <div>
-              <span class="section-badge">Nouveau dossier</span>
-              <h2 class="dashboard-section-title">Ajouter un client</h2>
-              <p class="dashboard-section-text">
-                Enregistrez les informations de transaction et téléversez les documents obligatoires.
+              <p class="company-overline">
+                {{ isEditing ? 'Modification' : 'Nouveau dossier' }}
               </p>
+              <h2>{{ isEditing ? 'Modifier un client' : 'Ajouter un client' }}</h2>
             </div>
+
+            <button class="modal-close" type="button" @click="closeCreateModal">
+              ×
+            </button>
           </div>
 
-          <form class="client-form-grid" @submit.prevent="createClient">
+          <form class="modal-form-grid" @submit.prevent="handleSubmit">
             <div class="field-group">
-              <label for="last_name" class="field-label">Nom</label>
+              <label class="field-label">Nom</label>
+              <input v-model="form.nom" class="input-pro" type="text" required />
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Prénom</label>
               <input
-                id="last_name"
-                v-model="form.last_name"
-                class="input"
+                v-model="form.prenom"
+                class="input-pro"
                 type="text"
-                placeholder="Dupont"
                 required
               />
             </div>
 
             <div class="field-group">
-              <label for="first_name" class="field-label">Prénom</label>
+              <label class="field-label">Date de transaction</label>
               <input
-                id="first_name"
-                v-model="form.first_name"
-                class="input"
-                type="text"
-                placeholder="Jean"
-                required
-              />
-            </div>
-
-            <div class="field-group">
-              <label for="transaction_date" class="field-label">Date de transaction</label>
-              <input
-                id="transaction_date"
-                v-model="form.transaction_date"
-                class="input"
+                v-model="form.date_transaction"
+                class="input-pro"
                 type="date"
                 required
               />
             </div>
 
             <div class="field-group">
-              <label for="amount" class="field-label">Montant</label>
+              <label class="field-label">Montant</label>
               <input
-                id="amount"
-                v-model="form.amount"
-                class="input"
+                v-model="form.montant"
+                class="input-pro"
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder="0.00"
                 required
               />
             </div>
 
-            <div class="field-group client-form-full">
-              <label for="merchandise" class="field-label">Marchandise</label>
+            <div class="field-group modal-full">
+              <label class="field-label">Marchandise</label>
               <input
-                id="merchandise"
-                v-model="form.merchandise"
-                class="input"
+                v-model="form.marchandise"
+                class="input-pro"
                 type="text"
-                placeholder="Description de la marchandise"
                 required
               />
             </div>
 
             <div class="field-group">
-              <label for="merchandise_weight" class="field-label">Poids de la marchandise</label>
+              <label class="field-label">Poids</label>
               <input
-                id="merchandise_weight"
-                v-model="form.merchandise_weight"
-                class="input"
+                v-model="form.poids"
+                class="input-pro"
                 type="number"
                 min="0"
                 step="0.01"
-                placeholder="0"
                 required
               />
             </div>
 
             <div class="field-group">
-              <label for="id_document" class="field-label">Pièce d’identité</label>
+              <label class="field-label">
+                Pièce d’identité
+                <span v-if="isEditing"> (optionnel)</span>
+              </label>
               <input
-                id="id_document"
-                class="input file-input"
+                class="input-pro"
                 type="file"
                 accept="image/*,.pdf"
                 @change="handleIdDocumentChange"
-                required
+                :required="!isEditing"
               />
             </div>
 
-            <div class="field-group client-form-full">
-              <label for="signed_contract" class="field-label">Contrat signé</label>
+            <div class="field-group modal-full">
+              <label class="field-label">
+                Contrat signé
+                <span v-if="isEditing"> (optionnel)</span>
+              </label>
               <input
-                id="signed_contract"
-                class="input file-input"
+                class="input-pro"
                 type="file"
                 accept="image/*,.pdf"
                 @change="handleSignedContractChange"
-                required
+                :required="!isEditing"
               />
             </div>
 
-            <div class="client-form-actions client-form-full">
-              <button class="btn" type="submit" :disabled="saving">
-                {{ saving ? 'Enregistrement...' : 'Ajouter le client' }}
+            <div class="modal-actions modal-full">
+              <button class="primary-btn-pro" type="submit" :disabled="submitting">
+                {{
+                  submitting
+                    ? isEditing
+                      ? 'Mise à jour...'
+                      : 'Enregistrement...'
+                    : isEditing
+                      ? 'Mettre à jour'
+                      : 'Enregistrer'
+                }}
+              </button>
+
+              <button
+                class="secondary-btn-pro"
+                type="button"
+                @click="closeCreateModal"
+              >
+                Annuler
               </button>
             </div>
           </form>
@@ -328,92 +538,11 @@ const goBack = () => {
           <p v-if="successMessage" class="message-success">
             {{ successMessage }}
           </p>
-
           <p v-if="errorMessage" class="message-error">
             {{ errorMessage }}
           </p>
-        </section>
-
-        <section class="company-list-section">
-          <div class="dashboard-list-header">
-            <div>
-              <span class="section-badge">Dossiers clients</span>
-              <h2 class="dashboard-section-title">Clients enregistrés</h2>
-            </div>
-
-            <div class="dashboard-counter">
-              {{ clients.length }} client{{ clients.length > 1 ? 's' : '' }}
-            </div>
-          </div>
-
-          <div v-if="clients.length === 0" class="dashboard-empty-state">
-            <h3>Aucun client enregistré</h3>
-            <p>
-              Ajoutez votre premier dossier client pour commencer à structurer les informations de cette entreprise.
-            </p>
-          </div>
-
-          <div v-else class="client-card-grid">
-            <article
-              v-for="client in clients"
-              :key="client.id"
-              class="client-card"
-            >
-              <div class="client-card-head">
-                <span class="company-badge">Client</span>
-              </div>
-
-              <h3 class="client-name">
-                {{ client.first_name }} {{ client.last_name }}
-              </h3>
-
-              <dl class="client-details">
-                <div>
-                  <dt>Date</dt>
-                  <dd>{{ new Date(client.transaction_date).toLocaleDateString('fr-CA') }}</dd>
-                </div>
-
-                <div>
-                  <dt>Montant</dt>
-                  <dd>{{ Number(client.amount).toFixed(2) }}</dd>
-                </div>
-
-                <div>
-                  <dt>Marchandise</dt>
-                  <dd>{{ client.merchandise }}</dd>
-                </div>
-
-                <div>
-                  <dt>Poids</dt>
-                  <dd>{{ client.merchandise_weight }}</dd>
-                </div>
-              </dl>
-
-              <div class="client-doc-links">
-                <a
-                  v-if="client.id_document_url"
-                  :href="client.id_document_url"
-                  class="btn btn-secondary"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Voir la pièce d’identité
-                </a>
-
-                <a
-                  v-if="client.signed_contract_url"
-                  :href="client.signed_contract_url"
-                  class="btn btn-secondary"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Voir le contrat
-                </a>
-              </div>
-            </article>
-          </div>
-        </section>
-      </template>
+        </div>
+      </div>
     </section>
   </main>
 </template>
