@@ -57,17 +57,6 @@ const handleSubmit = async () => {
 <template>
   <main class="login-page">
     <section class="login-shell">
-      <div class="login-topbar">
-        <RouterLink to="/" class="brand brand-dark">
-          <div class="brand-mark">GS</div>
-          <span class="brand-text">Gestovia</span>
-        </RouterLink>
-
-        <RouterLink to="/" class="nav-link">
-          Retour à l’accueil
-        </RouterLink>
-      </div>
-
       <div class="login-grid" :class="{ 'signup-mode': isSignup }">
         <aside class="login-side-panel">
           <div class="login-side-content">

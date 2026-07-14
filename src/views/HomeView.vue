@@ -1,19 +1,5 @@
 <template>
   <main class="home-page">
-    <header class="home-header">
-      <div class="home-container home-nav">
-        <div class="brand">
-          <div class="brand-mark">GS</div>
-          <span class="brand-text">Gestovia</span>
-        </div>
-
-        <nav class="nav-actions">
-          <RouterLink to="/login" class="nav-link">Connexion</RouterLink>
-          <RouterLink to="/login" class="btn btn-small">Demander un accès</RouterLink>
-        </nav>
-      </div>
-    </header>
-
     <section class="hero-section">
       <div class="home-container hero-grid">
         <div class="hero-copy reveal">

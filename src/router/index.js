@@ -6,8 +6,8 @@ import DashboardView from '../views/DashboardView.vue'
 import CompanyView from '../views/CompanyView.vue'
 
 const routes = [
-  { path: '/', name: 'home', component: HomeView },
-  { path: '/login', name: 'login', component: LoginView },
+  { path: '/', name: 'home', component: HomeView, meta: { layout: 'marketing' } },
+  { path: '/login', name: 'login', component: LoginView, meta: { layout: 'marketing' } },
   {
     path: '/dashboard',
     name: 'dashboard',
@@ -41,6 +41,13 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) return savedPosition
+    if (to.hash) {
+      return { el: to.hash, behavior: 'smooth' }
+    }
+    return { top: 0, behavior: 'smooth' }
+  },
 })
 
 const DEV_BYPASS_AUTH = true
