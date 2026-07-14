@@ -14,22 +14,16 @@ const routes = [
     component: DashboardView,
     meta: { requiresAuth: true, layout: 'marketing' },
   },
-
-  // Ancienne route conservée pour compatibilité
   {
     path: '/company/:id',
     redirect: (to) => `/companies/${to.params.id}`,
   },
-
-  // Route entreprise principale
   {
     path: '/companies/:id',
     name: 'company',
     component: CompanyView,
     meta: { requiresAuth: true, layout: 'marketing' },
   },
-
-  // Route détail client
   {
     path: '/companies/:companyId/clients/:clientId',
     name: 'client-detail',
@@ -50,31 +44,28 @@ const router = createRouter({
   },
 })
 
-const DEV_BYPASS_AUTH = true
+const DEV_BYPASS_AUTH = false
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to) => {
   if (DEV_BYPASS_AUTH) {
-    next()
-    return
+    return true
   }
 
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  const isAuthenticated = !!user
+  const isAuthenticated = !!session
 
   if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login')
-    return
+    return '/login'
   }
 
   if (to.path === '/login' && isAuthenticated) {
-    next('/dashboard')
-    return
+    return '/dashboard'
   }
 
-  next()
+  return true
 })
 
 export default router

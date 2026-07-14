@@ -243,7 +243,6 @@ a {
   width: 100%;
 }
 
-
 .btn:not(.btn-secondary) {
   background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
   color: #fff;
@@ -285,7 +284,6 @@ a {
   padding: 0 16px;
 }
 
-
 .input::placeholder {
   color: #94a3b8;
 }
@@ -301,17 +299,14 @@ a {
   box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
 }
 
-
 /* -------------------- */
 /* Forms / text blocks  */
 /* -------------------- */
-
 
 .field-group {
   display: grid;
   gap: 8px;
 }
-
 
 .name-grid {
   display: grid;
@@ -332,7 +327,6 @@ a {
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
-
 
 .section-title {
   margin: 14px 0 12px;
@@ -475,18 +469,39 @@ a {
   background: var(--primary-soft);
 }
 
+/* CORRECTION BOUTON CONNEXION */
 .home-header .auth-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 40px;
   padding: 0 16px;
   border-radius: 999px;
   background: var(--primary-soft);
   color: var(--primary);
   font-weight: 700;
+  border: 1px solid transparent;
+  box-shadow: none;
+  outline: none;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .home-header .auth-trigger:hover {
   background: #dfe9ff;
   color: var(--primary-dark);
+  box-shadow: none;
+}
+
+.home-header .auth-trigger:active,
+.home-header .auth-trigger:focus,
+.home-header .auth-trigger:focus-visible {
+  box-shadow: none;
+  outline: none;
 }
 
 button.auth-trigger,
@@ -502,6 +517,7 @@ button.nav-link {
   min-height: 40px;
   padding: 0 16px;
   background: var(--primary-soft);
+  box-shadow: none;
 }
 
 .header-user-menu {
@@ -714,7 +730,6 @@ button.nav-link {
   text-transform: uppercase;
   color: var(--text);
 }
-
 
 .auth-input {
   background: #eef3fb;
@@ -1691,7 +1706,6 @@ button.nav-link {
   z-index: 1;
 }
 
-
 /* Responsive */
 
 @media (max-width: 1080px) {
@@ -1711,7 +1725,6 @@ button.nav-link {
   .hero-title {
     max-width: 13ch;
   }
-
 }
 
 @media (max-width: 720px) {

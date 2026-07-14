@@ -1,8 +1,14 @@
 <script setup>
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import { supabase } from '../lib/supabaseClient'
 
 const router = useRouter()
 const year = new Date().getFullYear()
+const session = ref(null)
+let authListener = null
+
+const isLoggedIn = computed(() => !!session.value)
 
 const goHome = async () => {
   if (router.currentRoute.value.path !== '/') {
@@ -10,63 +16,91 @@ const goHome = async () => {
   }
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
+
+async function loadAuth() {
+  const {
+    data: { session: currentSession },
+  } = await supabase.auth.getSession()
+
+  session.value = currentSession
+}
+
+onMounted(async () => {
+  await loadAuth()
+
+  const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
+    session.value = newSession
+  })
+
+  authListener = data
+})
+
+onUnmounted(() => {
+  authListener?.subscription?.unsubscribe?.()
+  authListener?.unsubscribe?.()
+})
 </script>
 
 <template>
   <footer class="site-footer">
-    <div class="home-container site-footer-grid">
-      <div class="site-footer-brand">
-        <RouterLink to="/" class="brand brand-footer" @click="goHome">
-          <div class="brand-mark">GS</div>
-          <div class="site-footer-brand-text">
-            <span class="brand-text">Gestovia</span>
-            <span class="site-footer-tagline">Plateforme de gestion multi-entreprises</span>
-          </div>
-        </RouterLink>
-        <p class="site-footer-copy">
-          Centralisez vos entreprises, vos clients et vos documents dans un seul espace sécurisé —
-          transactions, pièces d’identité et contrats signés.
-        </p>
-      </div>
+    <template v-if="!isLoggedIn">
+      <div class="home-container site-footer-grid">
+        <div class="site-footer-brand">
+          <RouterLink to="/" class="brand brand-footer" @click="goHome">
+            <div class="brand-mark">GS</div>
+            <div class="site-footer-brand-text">
+              <span class="brand-text">Gestovia</span>
+              <span class="site-footer-tagline">Plateforme de gestion multi-entreprises</span>
+            </div>
+          </RouterLink>
 
-      <div class="site-footer-col">
-        <h3 class="site-footer-heading">Plateforme</h3>
-        <nav class="site-footer-links">
-          <a href="/" class="site-footer-home" @click.prevent="goHome">Accueil</a>
-          <RouterLink to="/#features">Fonctionnalités</RouterLink>
-          <RouterLink to="/login">Connexion</RouterLink>
-        </nav>
-      </div>
+          <p class="site-footer-copy">
+            Centralisez vos entreprises, vos clients et vos documents dans un seul espace sécurisé —
+            transactions, pièces d’identité et contrats signés.
+          </p>
+        </div>
 
-      <div class="site-footer-col">
-        <h3 class="site-footer-heading">Fonctionnalités</h3>
-        <nav class="site-footer-links">
-          <RouterLink to="/#features">Multi-entreprises</RouterLink>
-          <RouterLink to="/#features">Dossiers clients</RouterLink>
-          <RouterLink to="/#features">Documents centralisés</RouterLink>
-        </nav>
-      </div>
+        <div class="site-footer-col">
+          <h3 class="site-footer-heading">Plateforme</h3>
+          <nav class="site-footer-links">
+            <a href="/" class="site-footer-home" @click.prevent="goHome">Accueil</a>
+            <RouterLink to="/#features">Fonctionnalités</RouterLink>
+          </nav>
+        </div>
 
-      <div class="site-footer-col">
-        <h3 class="site-footer-heading">Parcours</h3>
-        <ul class="site-footer-list">
-          <li>
-            <span class="site-footer-step">01</span>
-            <span>Créer votre espace</span>
-          </li>
-          <li>
-            <span class="site-footer-step">02</span>
-            <span>Ajouter vos entreprises</span>
-          </li>
-          <li>
-            <span class="site-footer-step">03</span>
-            <span>Enregistrer vos clients</span>
-          </li>
-        </ul>
-      </div>
-    </div>
+        <div class="site-footer-col">
+          <h3 class="site-footer-heading">Fonctionnalités</h3>
+          <nav class="site-footer-links">
+            <RouterLink to="/#features">Multi-entreprises</RouterLink>
+            <RouterLink to="/#features">Dossiers clients</RouterLink>
+            <RouterLink to="/#features">Documents centralisés</RouterLink>
+          </nav>
+        </div>
 
-    <div class="home-container site-footer-bottom">
+        <div class="site-footer-col">
+          <h3 class="site-footer-heading">Parcours</h3>
+          <ul class="site-footer-list">
+            <li>
+              <span class="site-footer-step">01</span>
+              <span>Créer votre espace</span>
+            </li>
+            <li>
+              <span class="site-footer-step">02</span>
+              <span>Ajouter vos entreprises</span>
+            </li>
+            <li>
+              <span class="site-footer-step">03</span>
+              <span>Enregistrer vos clients</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </template>
+
+    <div
+      class="home-container site-footer-bottom"
+      :style="isLoggedIn ? 'display:flex;justify-content:center;text-align:center;' : ''"
+    >
       <p class="site-footer-legal">&copy; {{ year }} Gestovia. Tous droits réservés.</p>
     </div>
   </footer>

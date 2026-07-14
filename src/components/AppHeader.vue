@@ -1,183 +1,148 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { supabase } from '../lib/supabaseClient'
-import AuthModal from './AuthModal.vue'
 
 const router = useRouter()
-const isAuthenticated = ref(false)
-const displayName = ref('')
-const authOpen = ref(false)
-const authMode = ref('login')
 const menuOpen = ref(false)
-const menuRoot = ref(null)
+const user = ref(null)
+const session = ref(null)
+const menuRef = ref(null)
+let authListener = null
 
-let authSubscription = null
+const isLoggedIn = computed(() => !!session.value)
 
-const userLabel = computed(() => displayName.value || 'Mon compte')
+const fullName = computed(() => {
+  const meta = user.value?.user_metadata || {}
+  const firstName = meta.first_name || meta.firstname || ''
+  const lastName = meta.last_name || meta.lastname || ''
+  const combined = `${firstName} ${lastName}`.trim()
 
-const goHome = async () => {
-  menuOpen.value = false
-  if (router.currentRoute.value.path !== '/') {
-    await router.push('/')
-  }
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  if (combined) return combined
+  if (meta.full_name) return meta.full_name
+  return user.value?.email || 'Utilisateur'
+})
+
+async function loadAuth() {
+  const {
+    data: { session: currentSession },
+  } = await supabase.auth.getSession()
+
+  session.value = currentSession
+  user.value = currentSession?.user ?? null
 }
 
-const openAuth = (mode = 'login') => {
-  authMode.value = mode
-  authOpen.value = true
-}
-
-const toggleMenu = () => {
+function toggleMenu() {
   menuOpen.value = !menuOpen.value
 }
 
-const closeMenu = () => {
+function closeMenu() {
   menuOpen.value = false
 }
 
-const handleLogout = async () => {
-  closeMenu()
-  await supabase.auth.signOut()
-  await router.push('/')
+function handleClickOutside(event) {
+  if (!menuRef.value) return
+  if (!menuRef.value.contains(event.target)) {
+    closeMenu()
+  }
 }
 
-const syncUser = (user) => {
-  isAuthenticated.value = !!user
-  if (!user) {
-    displayName.value = ''
-    menuOpen.value = false
+async function handleLogout() {
+  closeMenu()
+
+  const { error } = await supabase.auth.signOut()
+
+  if (error) {
+    console.error('Erreur de déconnexion :', error.message)
     return
   }
 
-  const first = user.user_metadata?.first_name || ''
-  const last = user.user_metadata?.last_name || ''
-  const full = `${first} ${last}`.trim()
-  displayName.value = full || user.email?.split('@')[0] || 'Utilisateur'
-}
-
-const onDocumentClick = (event) => {
-  if (!menuOpen.value || !menuRoot.value) return
-  if (!menuRoot.value.contains(event.target)) closeMenu()
-}
-
-const onKeydown = (event) => {
-  if (event.key === 'Escape') closeMenu()
+  session.value = null
+  user.value = null
+  router.replace('/')
 }
 
 onMounted(async () => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  syncUser(user)
+  await loadAuth()
 
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-    syncUser(session?.user ?? null)
+  const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
+    session.value = newSession
+    user.value = newSession?.user ?? null
+
+    if (!newSession) {
+      closeMenu()
+    }
   })
-  authSubscription = data.subscription
 
-  document.addEventListener('click', onDocumentClick)
-  window.addEventListener('keydown', onKeydown)
+  authListener = data
+
+  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
-  authSubscription?.unsubscribe()
-  document.removeEventListener('click', onDocumentClick)
-  window.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('click', handleClickOutside)
+  authListener?.subscription?.unsubscribe?.()
+  authListener?.unsubscribe?.()
 })
 </script>
 
 <template>
   <header class="home-header">
-    <div class="home-container home-nav">
-      <div class="nav-left">
-        <a href="/" class="brand brand-dark" @click.prevent="goHome">
-          <div class="brand-mark">GS</div>
-          <span class="brand-text">Gestovia</span>
-        </a>
-
-        <nav class="nav-links" aria-label="Navigation principale">
-          <RouterLink to="/" class="nav-link" @click="goHome">Accueil</RouterLink>
-          <RouterLink
-            v-if="isAuthenticated"
-            to="/dashboard"
-            class="nav-link"
-          >
-            Tableau de bord
+    <div class="home-container">
+      <nav class="home-nav">
+        <div class="nav-left">
+          <RouterLink to="/" class="brand brand-dark">
+            <span class="brand-mark">GS</span>
+            <span class="brand-text">Gestovia</span>
           </RouterLink>
-        </nav>
-      </div>
+        </div>
 
-      <div class="nav-actions">
-        <div
-          v-if="isAuthenticated"
-          ref="menuRoot"
-          class="header-user-menu"
-          :class="{ 'is-open': menuOpen }"
-        >
-          <button
-            type="button"
-            class="header-user-trigger"
-            :aria-expanded="menuOpen"
-            aria-haspopup="menu"
-            @click.stop="toggleMenu"
-          >
-            <span class="header-user-avatar" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8" />
-                <path
-                  d="M5 19.5c1.2-3.2 3.5-5 7-5s5.8 1.8 7 5"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                />
-              </svg>
-            </span>
-            <span class="header-user-name">{{ userLabel }}</span>
-            <svg class="header-user-caret" viewBox="0 0 12 12" aria-hidden="true">
-              <path
-                d="M3 4.5L6 7.5L9 4.5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </button>
+        <div class="nav-actions">
+          <RouterLink v-if="!isLoggedIn" to="/login" class="auth-trigger">
+            Connexion
+          </RouterLink>
 
           <div
-            v-if="menuOpen"
-            class="header-user-dropdown"
-            role="menu"
+            v-else
+            ref="menuRef"
+            class="header-user-menu"
+            :class="{ 'is-open': menuOpen }"
           >
             <button
               type="button"
-              class="header-user-item is-danger"
-              role="menuitem"
-              @click="handleLogout"
+              class="header-user-trigger"
+              @click.stop="toggleMenu"
+              aria-haspopup="menu"
+              :aria-expanded="menuOpen ? 'true' : 'false'"
             >
-              Se déconnecter
+              <span class="header-user-avatar">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </span>
+
+              <span class="header-user-name">{{ fullName }}</span>
+
+              <svg class="header-user-caret" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path
+                  fill-rule="evenodd"
+                  d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.51a.75.75 0 0 1-1.08 0l-4.25-4.51a.75.75 0 0 1 .02-1.06Z"
+                  clip-rule="evenodd"
+                />
+              </svg>
             </button>
+
+            <div v-if="menuOpen" class="header-user-dropdown" role="menu">
+              <button type="button" class="header-user-item is-danger" @click="handleLogout">
+                Se déconnecter
+              </button>
+            </div>
           </div>
         </div>
-
-        <button
-          v-else
-          type="button"
-          class="nav-link auth-trigger"
-          @click="openAuth('login')"
-        >
-          Connexion
-        </button>
-      </div>
+      </nav>
     </div>
   </header>
-
-  <AuthModal
-    v-model:mode="authMode"
-    :open="authOpen"
-    @close="authOpen = false"
-  />
 </template>

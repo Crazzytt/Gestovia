@@ -700,3 +700,211 @@
     transition: none !important;
   }
 }
+.dashboard-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(12px, 2vw, 18px);
+  margin-bottom: clamp(16px, 2.8vw, 24px);
+}
+
+.dashboard-stat-card {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(18px, 2.8vw, 24px);
+  border: 1px solid var(--dash-border);
+  border-radius: clamp(16px, 2.5vw, var(--dash-radius));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(248, 251, 255, 0.92) 100%);
+  box-shadow: var(--dash-shadow);
+  transition:
+    transform 240ms var(--dash-ease),
+    box-shadow 240ms var(--dash-ease),
+    border-color 240ms var(--dash-ease);
+}
+
+.dashboard-stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--dash-accent) 0%, var(--dash-primary-2) 100%);
+  opacity: 0.9;
+}
+
+.dashboard-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.08);
+  border-color: rgba(37, 99, 235, 0.16);
+}
+
+.dashboard-stat-label,
+.dashboard-card-kicker {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dash-muted);
+}
+
+.dashboard-stat-value {
+  display: block;
+  margin: 0 0 6px;
+  font-size: clamp(24px, 4vw, 32px);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+  color: var(--dash-text);
+}
+
+.dashboard-stat-hint {
+  display: block;
+  color: var(--dash-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.dashboard-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.85fr);
+  gap: clamp(12px, 2vw, 18px);
+  margin-bottom: clamp(18px, 3vw, 24px);
+}
+
+.dashboard-highlight-card,
+.dashboard-side-card {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(18px, 2.8vw, 24px);
+  border: 1px solid var(--dash-border);
+  border-radius: clamp(18px, 2.5vw, 24px);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 251, 255, 0.92) 100%);
+  box-shadow: var(--dash-shadow);
+}
+
+.dashboard-highlight-card::after {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.1), transparent 68%);
+  pointer-events: none;
+}
+
+.dashboard-highlight-card h2,
+.dashboard-side-card h2 {
+  margin: 0 0 10px;
+  font-size: clamp(20px, 3vw, 24px);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  color: var(--dash-text);
+}
+
+.dashboard-highlight-card p,
+.dashboard-side-card p {
+  margin: 0;
+  color: var(--dash-muted);
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 60ch;
+}
+
+.dashboard-highlight-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.dashboard-highlight-meta > div {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(217, 226, 236, 0.85);
+}
+
+.dashboard-highlight-meta span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dash-muted);
+}
+
+.dashboard-highlight-meta strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--dash-text);
+  letter-spacing: -0.01em;
+}
+
+.dashboard-mini-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-mini-list li {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(217, 226, 236, 0.72);
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-mini-list li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dashboard-mini-list strong {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--dash-text);
+  letter-spacing: -0.01em;
+}
+
+.dashboard-mini-list span,
+.dashboard-side-empty {
+  color: var(--dash-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.dash-reveal--3 {
+  transition-delay: 220ms;
+}
+
+.dash-reveal--4 {
+  transition-delay: 300ms;
+}
+
+@media (max-width: 900px) {
+  .dashboard-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-highlight-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-stat-card:hover {
+    transform: none;
+  }
+}

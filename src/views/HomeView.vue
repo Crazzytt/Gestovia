@@ -1,14 +1,15 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
+import { supabase } from '../lib/supabaseClient'
 import heroAmbient from '../assets/home/hero-ambient.png'
 
 const pageRef = ref(null)
+const router = useRouter()
 let observer = null
+let authSubscription = null
 
-onMounted(() => {
-  const root = pageRef.value
-  if (!root) return
-
+function setupReveal(root) {
   const targets = root.querySelectorAll('[data-home-reveal]')
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -38,10 +39,32 @@ onMounted(() => {
   )
 
   targets.forEach((el) => observer.observe(el))
+}
+
+onMounted(async () => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (session) {
+    router.replace('/dashboard')
+    return
+  }
+
+  authSubscription = supabase.auth.onAuthStateChange((event, session) => {
+    if (session) {
+      router.replace('/dashboard')
+    }
+  })
+
+  const root = pageRef.value
+  if (!root) return
+  setupReveal(root)
 })
 
 onUnmounted(() => {
   observer?.disconnect()
+  authSubscription?.data?.subscription?.unsubscribe()
 })
 </script>
 
@@ -60,6 +83,7 @@ onUnmounted(() => {
         />
         <div class="home-hero-media-veil"></div>
       </div>
+
       <div class="home-hero-glow" aria-hidden="true"></div>
       <div class="home-hero-glow home-hero-glow-2" aria-hidden="true"></div>
 
@@ -111,6 +135,7 @@ onUnmounted(() => {
 
         <div class="hero-visual hero-entrance hero-entrance-9">
           <div class="hero-visual-orbit" aria-hidden="true"></div>
+
           <div class="dashboard-preview" aria-hidden="true">
             <div class="preview-topbar">
               <span></span>
@@ -172,7 +197,11 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <a href="#features" class="home-scroll-hint hero-entrance hero-entrance-10" aria-label="Défiler vers les fonctionnalités">
+      <a
+        href="#features"
+        class="home-scroll-hint hero-entrance hero-entrance-10"
+        aria-label="Défiler vers les fonctionnalités"
+      >
         <span class="home-scroll-hint-line"></span>
       </a>
     </section>

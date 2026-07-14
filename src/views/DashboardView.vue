@@ -24,6 +24,28 @@ const welcomeTitle = computed(() =>
   firstName.value ? `Bonjour, ${firstName.value}` : 'Tableau de bord',
 )
 
+const latestCompany = computed(() => companies.value[0] || null)
+
+const dashboardStats = computed(() => [
+  {
+    label: 'Entreprises',
+    value: companies.value.length,
+    hint: companies.value.length > 0 ? 'structures enregistrées' : 'aucune structure',
+  },
+  {
+    label: 'Dernière création',
+    value: latestCompany.value ? latestCompany.value.name : '-',
+    hint: latestCompany.value ? formatDate(latestCompany.value.created_at) : 'aucune date',
+  },
+  {
+    label: 'Compte',
+    value: user.value && user.value.id !== 'demo-user' ? 'Actif' : 'Démo',
+    hint: user.value && user.value.id !== 'demo-user' ? 'session authentifiée' : 'mode démonstration',
+  },
+])
+
+const recentCompanies = computed(() => companies.value.slice(0, 3))
+
 const formatDate = (value) => {
   if (!value) return '-'
   return new Date(value).toLocaleDateString('fr-CA', {
@@ -134,13 +156,66 @@ onMounted(async () => {
 
     <section class="dashboard-pro-shell">
       <header class="dashboard-page-intro dash-reveal dash-reveal--1">
-        <h1 class="dashboard-page-title">{{ welcomeTitle }}</h1>
-        <p class="dashboard-page-subtitle">
-          Centralisez vos entreprises et accédez rapidement à leurs dossiers clients.
-        </p>
+        <div>
+          <p class="dashboard-page-kicker">Espace de gestion</p>
+          <h1 class="dashboard-page-title">{{ welcomeTitle }}</h1>
+          <p class="dashboard-page-subtitle">
+            Centralisez vos entreprises et accédez rapidement à leurs dossiers clients.
+          </p>
+        </div>
       </header>
 
-      <section class="dashboard-main-panel dash-reveal dash-reveal--2">
+      <section class="dashboard-summary-grid dash-reveal dash-reveal--2">
+        <article
+          v-for="stat in dashboardStats"
+          :key="stat.label"
+          class="dashboard-stat-card"
+        >
+          <span class="dashboard-stat-label">{{ stat.label }}</span>
+          <strong class="dashboard-stat-value">{{ stat.value }}</strong>
+          <span class="dashboard-stat-hint">{{ stat.hint }}</span>
+        </article>
+      </section>
+
+      <section class="dashboard-overview-grid dash-reveal dash-reveal--3">
+        <article class="dashboard-highlight-card">
+          <span class="dashboard-card-kicker">Vue d’ensemble</span>
+          <h2>Votre activité est prête à être structurée</h2>
+          <p>
+            Utilisez cet espace pour piloter vos sociétés, retrouver rapidement les créations récentes
+            et lancer la gestion de chaque dossier depuis une interface claire.
+          </p>
+
+          <div class="dashboard-highlight-meta">
+            <div>
+              <span>Total enregistré</span>
+              <strong>{{ companyCountLabel }}</strong>
+            </div>
+            <div>
+              <span>Dernière mise à jour</span>
+              <strong>{{ latestCompany ? formatDate(latestCompany.created_at) : '-' }}</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="dashboard-side-card">
+          <span class="dashboard-card-kicker">Activité récente</span>
+          <h2>Derniers ajouts</h2>
+
+          <ul v-if="recentCompanies.length" class="dashboard-mini-list" role="list">
+            <li v-for="company in recentCompanies" :key="company.id">
+              <strong>{{ company.name }}</strong>
+              <span>Ajoutée le {{ formatDate(company.created_at) }}</span>
+            </li>
+          </ul>
+
+          <p v-else class="dashboard-side-empty">
+            Aucune activité récente pour le moment.
+          </p>
+        </article>
+      </section>
+
+      <section class="dashboard-main-panel dash-reveal dash-reveal--4">
         <div class="dashboard-toolbar">
           <div class="dashboard-toolbar-title">
             <h2>Entreprises</h2>
@@ -201,7 +276,10 @@ onMounted(async () => {
                 :style="{ '--row-delay': `${index * 55}ms` }"
               >
                 <div class="company-cell">
-                  <span class="company-cell-mark">{{ company.name.charAt(0).toUpperCase() }}</span>
+                  <span class="company-cell-mark">
+                    {{ company.name.charAt(0).toUpperCase() }}
+                  </span>
+
                   <div>
                     <strong>{{ company.name }}</strong>
                     <span>Créée le {{ formatDate(company.created_at) }}</span>
