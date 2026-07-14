@@ -2,9 +2,12 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabaseClient'
+import AuthModal from './AuthModal.vue'
 
 const router = useRouter()
 const isAuthenticated = ref(false)
+const authOpen = ref(false)
+const authMode = ref('login')
 
 let authSubscription = null
 
@@ -13,6 +16,11 @@ const goHome = async () => {
     await router.push('/')
   }
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const openAuth = (mode = 'login') => {
+  authMode.value = mode
+  authOpen.value = true
 }
 
 onMounted(async () => {
@@ -41,15 +49,24 @@ onUnmounted(() => {
       </a>
 
       <nav class="nav-actions">
-        <a href="/" class="nav-link" @click.prevent="goHome">Accueil</a>
         <RouterLink v-if="isAuthenticated" to="/dashboard" class="nav-link">
           Tableau de bord
         </RouterLink>
-        <template v-else>
-          <RouterLink to="/login" class="nav-link">Connexion</RouterLink>
-          <RouterLink to="/login" class="btn btn-small">Demander un accès</RouterLink>
-        </template>
+        <button
+          v-else
+          type="button"
+          class="nav-link auth-trigger"
+          @click="openAuth('login')"
+        >
+          Connexion
+        </button>
       </nav>
     </div>
   </header>
+
+  <AuthModal
+    v-model:mode="authMode"
+    :open="authOpen"
+    @close="authOpen = false"
+  />
 </template>
