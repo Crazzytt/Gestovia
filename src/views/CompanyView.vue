@@ -73,10 +73,6 @@ const closeCreateModal = () => {
   resetForm()
 }
 
-const goToDashboard = () => {
-  router.push('/dashboard')
-}
-
 const formatMoney = (value) =>
   new Intl.NumberFormat('fr-CA', {
     minimumFractionDigits: 2,
@@ -339,21 +335,6 @@ onMounted(async () => {
   <main class="company-pro-page" :class="{ 'is-ready': pageReady }">
     <section class="company-pro-shell">
       <header class="company-page-intro company-reveal company-reveal--1">
-        <button class="company-back-btn" type="button" @click="goToDashboard">
-          <span class="company-back-icon" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M10 3L5 8l5 5"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </span>
-          Retour
-        </button>
-
         <h1 class="company-page-title">
           {{ company?.name || (loading ? 'Chargement...' : 'Entreprise') }}
         </h1>

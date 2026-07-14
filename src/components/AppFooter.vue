@@ -44,7 +44,6 @@ const goHome = async () => {
           <RouterLink to="/#features">Multi-entreprises</RouterLink>
           <RouterLink to="/#features">Dossiers clients</RouterLink>
           <RouterLink to="/#features">Documents centralisés</RouterLink>
-          <RouterLink to="/dashboard">Tableau de bord</RouterLink>
         </nav>
       </div>
 

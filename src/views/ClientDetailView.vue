@@ -66,10 +66,6 @@ const documents = computed(() => {
   return items
 })
 
-const goToCompany = () => {
-  router.push(`/companies/${companyId}`)
-}
-
 const editClient = () => {
   router.push(`/companies/${companyId}?edit=${clientId}`)
 }
@@ -161,21 +157,6 @@ onMounted(async () => {
 
     <section class="detail-pro-shell">
       <header class="detail-page-intro detail-reveal detail-reveal--1">
-        <button class="detail-back-btn" type="button" @click="goToCompany">
-          <span class="detail-back-icon" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M10 3L5 8l5 5"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-          </span>
-          Retour
-        </button>
-
         <h1 class="detail-page-title">
           <template v-if="client">{{ client.prenom }} {{ client.nom }}</template>
           <template v-else>{{ loading ? 'Chargement...' : 'Détail client' }}</template>

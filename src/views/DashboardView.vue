@@ -115,7 +115,7 @@ const createCompany = async () => {
 }
 
 const openCompany = (companyId) => {
-  router.push(`/company/${companyId}`)
+  router.push(`/companies/${companyId}`)
 }
 
 onMounted(async () => {
@@ -186,7 +186,7 @@ onMounted(async () => {
             <p>Ajoutez votre première structure ci-dessus pour démarrer.</p>
           </div>
 
-          <div v-else key="list" class="dashboard-list-wrap">
+          <div v-else key="list">
             <TransitionGroup
               name="dash-row"
               tag="ul"
