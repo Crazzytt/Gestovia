@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabaseClient'
 import '../styles/DashboardView.css'
@@ -8,21 +8,29 @@ const router = useRouter()
 
 const user = ref(null)
 const firstName = ref('')
-const lastName = ref('')
 const companies = ref([])
 const companyName = ref('')
 const loading = ref(true)
 const creating = ref(false)
+const pageReady = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
 const companyCountLabel = computed(
-  () => `${companies.value.length} entreprise${companies.value.length > 1 ? 's' : ''}`
+  () => `${companies.value.length} entreprise${companies.value.length > 1 ? 's' : ''}`,
+)
+
+const welcomeTitle = computed(() =>
+  firstName.value ? `Bonjour, ${firstName.value}` : 'Tableau de bord',
 )
 
 const formatDate = (value) => {
   if (!value) return '-'
-  return new Date(value).toLocaleDateString('fr-CA')
+  return new Date(value).toLocaleDateString('fr-CA', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 const loadUserAndCompanies = async () => {
@@ -40,7 +48,6 @@ const loadUserAndCompanies = async () => {
     if (!currentUser) {
       user.value = { id: 'demo-user' }
       firstName.value = 'Demo'
-      lastName.value = 'User'
       companies.value = []
       loading.value = false
       return
@@ -48,7 +55,6 @@ const loadUserAndCompanies = async () => {
 
     user.value = currentUser
     firstName.value = currentUser.user_metadata?.first_name || ''
-    lastName.value = currentUser.user_metadata?.last_name || ''
 
     const { data, error } = await supabase
       .from('companies')
@@ -96,7 +102,7 @@ const createCompany = async () => {
     if (error) throw error
 
     if (data && data.length > 0) {
-      companies.value = [data[0], ...companies.value]
+      companies.value = [{ ...data[0], _justCreated: true }, ...companies.value]
     }
 
     successMessage.value = 'Entreprise créée avec succès.'
@@ -112,136 +118,109 @@ const openCompany = (companyId) => {
   router.push(`/company/${companyId}`)
 }
 
-const handleLogout = async () => {
-  await supabase.auth.signOut()
-  router.push('/login')
-}
-
-onMounted(() => {
-  loadUserAndCompanies()
+onMounted(async () => {
+  await loadUserAndCompanies()
+  await nextTick()
+  requestAnimationFrame(() => {
+    pageReady.value = true
+  })
 })
 </script>
 
 <template>
-  <main class="dashboard-pro-page">
-    <section class="dashboard-pro-shell">
-      <header class="dashboard-pro-topbar reveal">
-        <div class="dashboard-pro-heading">
-          <p class="dashboard-pro-kicker">Gestovia</p>
-          <h1 class="dashboard-pro-title">
-            Bonjour{{ firstName ? `, ${firstName}` : '' }}
-          </h1>
-          <p class="dashboard-pro-subtitle">
-            Gérez vos entreprises, accédez aux dossiers clients et suivez votre activité depuis une interface centralisée.
-          </p>
-        </div>
+  <main class="dashboard-pro-page" :class="{ 'is-ready': pageReady }">
+    <div class="dashboard-orbit" aria-hidden="true"></div>
+    <div class="dashboard-orbit dashboard-orbit--b" aria-hidden="true"></div>
 
-        <div class="dashboard-pro-topbar-actions">
-          <div class="dashboard-pro-pill">
-            {{ companyCountLabel }}
-          </div>
-          <button class="dashboard-ghost-btn" type="button" @click="handleLogout">
-            Se déconnecter
-          </button>
-        </div>
+    <section class="dashboard-pro-shell">
+      <header class="dashboard-page-intro dash-reveal dash-reveal--1">
+        <h1 class="dashboard-page-title">{{ welcomeTitle }}</h1>
+        <p class="dashboard-page-subtitle">
+          Centralisez vos entreprises et accédez rapidement à leurs dossiers clients.
+        </p>
       </header>
 
-      <section class="dashboard-pro-grid">
-        <aside class="dashboard-create-panel reveal-delay-1">
-          <div class="panel-head">
-            <p class="panel-kicker">Nouvelle entreprise</p>
-            <h2>Créer un espace</h2>
-            <p>
-              Ajoutez une structure pour commencer à enregistrer vos clients, leurs transactions et leurs documents.
-            </p>
+      <section class="dashboard-main-panel dash-reveal dash-reveal--2">
+        <div class="dashboard-toolbar">
+          <div class="dashboard-toolbar-title">
+            <h2>Entreprises</h2>
+            <span class="list-panel-meta" :key="companyCountLabel">{{ companyCountLabel }}</span>
           </div>
 
-          <form class="dashboard-create-stack" @submit.prevent="createCompany">
-            <div class="field-group">
-              <label for="companyName" class="field-label">Nom de l’entreprise</label>
-              <input
-                id="companyName"
-                v-model="companyName"
-                class="input"
-                type="text"
-                placeholder="Ex. Gestovia Transport"
-                required
-              />
-            </div>
-
+          <form class="dashboard-create-bar" @submit.prevent="createCompany">
+            <label class="visually-hidden" for="companyName">Nom de l’entreprise</label>
+            <input
+              id="companyName"
+              v-model="companyName"
+              class="input dashboard-input"
+              type="text"
+              placeholder="Nom de la nouvelle entreprise"
+              required
+            />
             <button class="dashboard-primary-btn" type="submit" :disabled="creating">
-              {{ creating ? 'Création...' : 'Créer l’entreprise' }}
+              <span>{{ creating ? 'Création...' : 'Ajouter' }}</span>
             </button>
           </form>
+        </div>
 
-          <p v-if="successMessage" class="message-success">
+        <Transition name="dash-message" mode="out-in">
+          <p v-if="successMessage" key="ok" class="message-success toolbar-message">
             {{ successMessage }}
           </p>
-
-          <p v-if="errorMessage" class="message-error">
+          <p v-else-if="errorMessage" key="err" class="message-error toolbar-message">
             {{ errorMessage }}
           </p>
-        </aside>
+        </Transition>
 
-        <section class="dashboard-list-panel reveal-delay-2">
-          <div class="list-panel-head">
-            <div>
-              <p class="panel-kicker">Entreprises</p>
-              <h2>Vos espaces de travail</h2>
+        <Transition name="dash-fade" mode="out-in">
+          <div v-if="loading" key="loading" class="dashboard-pro-empty">
+            <div class="dashboard-loading-dots" aria-hidden="true">
+              <span></span><span></span><span></span>
             </div>
-            <div class="list-panel-meta">
-              {{ companyCountLabel }}
-            </div>
-          </div>
-
-          <div v-if="loading" class="dashboard-pro-empty">
             <p>Chargement de vos entreprises...</p>
           </div>
 
-          <div v-else-if="companies.length === 0" class="dashboard-pro-empty">
-            <h3>Aucune entreprise</h3>
-            <p>Créez votre première entreprise pour démarrer votre espace de gestion.</p>
+          <div v-else-if="companies.length === 0" key="empty" class="dashboard-pro-empty">
+            <div class="dashboard-empty-icon" aria-hidden="true"></div>
+            <h3>Aucune entreprise pour le moment</h3>
+            <p>Ajoutez votre première structure ci-dessus pour démarrer.</p>
           </div>
 
-          <div v-else class="dashboard-table-shell">
-            <table class="dashboard-company-table">
-              <thead>
-                <tr>
-                  <th>Entreprise</th>
-                  <th>Date de création</th>
-                  <th>Statut</th>
-                  <th class="align-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="company in companies" :key="company.id">
-                  <td>
-                    <div class="company-cell">
-                      <span class="company-cell-dot"></span>
-                      <div>
-                        <strong>{{ company.name }}</strong>
-                        <span>ID : {{ company.id }}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{{ formatDate(company.created_at) }}</td>
-                  <td>
-                    <span class="status-badge">Active</span>
-                  </td>
-                  <td class="align-right">
-                    <button
-                      class="dashboard-row-btn"
-                      type="button"
-                      @click="openCompany(company.id)"
-                    >
-                      Ouvrir
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-else key="list" class="dashboard-list-wrap">
+            <TransitionGroup
+              name="dash-row"
+              tag="ul"
+              class="dashboard-company-list"
+              role="list"
+            >
+              <li
+                v-for="(company, index) in companies"
+                :key="company.id"
+                class="dashboard-company-item"
+                :class="{ 'is-new': company._justCreated }"
+                :style="{ '--row-delay': `${index * 55}ms` }"
+              >
+                <div class="company-cell">
+                  <span class="company-cell-mark">{{ company.name.charAt(0).toUpperCase() }}</span>
+                  <div>
+                    <strong>{{ company.name }}</strong>
+                    <span>Créée le {{ formatDate(company.created_at) }}</span>
+                  </div>
+                </div>
+
+                <span class="status-badge">Active</span>
+
+                <button
+                  class="dashboard-row-btn"
+                  type="button"
+                  @click="openCompany(company.id)"
+                >
+                  Ouvrir
+                </button>
+              </li>
+            </TransitionGroup>
           </div>
-        </section>
+        </Transition>
       </section>
     </section>
   </main>

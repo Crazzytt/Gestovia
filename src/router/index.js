@@ -12,7 +12,7 @@ const routes = [
     path: '/dashboard',
     name: 'dashboard',
     component: DashboardView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, layout: 'marketing' },
   },
 
   // Ancienne route conservée pour compatibilité
