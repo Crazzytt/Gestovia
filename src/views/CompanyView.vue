@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '../lib/supabaseClient'
 import '../styles/CompanyView.css'
@@ -10,6 +10,7 @@ const companyId = route.params.id
 
 const loading = ref(true)
 const submitting = ref(false)
+const pageReady = ref(false)
 const clients = ref([])
 const company = ref(null)
 const errorMessage = ref('')
@@ -32,7 +33,15 @@ const idDocumentFile = ref(null)
 const signedContractFile = ref(null)
 
 const pageTitle = computed(() =>
-  company.value?.name ? `${company.value.name} - Clients` : 'Entreprise'
+  company.value?.name ? `${company.value.name} - Clients` : 'Entreprise',
+)
+
+const clientCountLabel = computed(
+  () => `${clients.value.length} client${clients.value.length > 1 ? 's' : ''}`,
+)
+
+const totalAmountLabel = computed(() =>
+  formatMoney(clients.value.reduce((sum, client) => sum + Number(client.montant || 0), 0)),
 )
 
 const resetForm = () => {
@@ -64,8 +73,6 @@ const closeCreateModal = () => {
   resetForm()
 }
 
-const goBack = () => router.push('/dashboard')
-
 const formatMoney = (value) =>
   new Intl.NumberFormat('fr-CA', {
     minimumFractionDigits: 2,
@@ -74,7 +81,17 @@ const formatMoney = (value) =>
 
 const formatDate = (value) => {
   if (!value) return '-'
-  return new Date(value).toLocaleDateString('fr-CA')
+  return new Date(value).toLocaleDateString('fr-CA', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+const clientInitial = (client) => {
+  const first = (client.prenom || '').charAt(0)
+  const last = (client.nom || '').charAt(0)
+  return `${first}${last}`.toUpperCase() || '?'
 }
 
 const handleIdDocumentChange = (event) => {
@@ -232,7 +249,7 @@ const updateClient = async () => {
     if (signedContractFile.value) {
       updatePayload.contrat_signe_path = await uploadFile(
         signedContractFile.value,
-        'contracts'
+        'contracts',
       )
     }
 
@@ -256,7 +273,7 @@ const updateClient = async () => {
 
 const deleteClient = async (client) => {
   const confirmDelete = window.confirm(
-    `Supprimer le client ${client.prenom} ${client.nom} ?`
+    `Supprimer le client ${client.prenom} ${client.nom} ?`,
   )
   if (!confirmDelete) return
 
@@ -297,92 +314,113 @@ onMounted(async () => {
     errorMessage.value = error.message || 'Impossible de charger les données.'
   } finally {
     loading.value = false
+    await nextTick()
+    requestAnimationFrame(() => {
+      pageReady.value = true
+    })
   }
 })
 </script>
 
 <template>
-  <main class="company-layout">
-    <section class="company-panel">
-      <header class="company-header-pro">
-        <div class="company-header-left">
-          <button class="back-btn-pro" type="button" @click="goBack">
-            Retour
-          </button>
-
-          <div>
-            <p class="company-overline">Entreprise</p>
-            <h1 class="company-title-pro">
-              {{ company?.name || 'Chargement...' }}
-            </h1>
-          </div>
-        </div>
-
-        <div class="company-header-right">
-          <div class="header-stat-card">
-            <span class="header-stat-label">Clients</span>
-            <strong class="header-stat-value">{{ clients.length }}</strong>
-          </div>
-        </div>
+  <main class="company-pro-page" :class="{ 'is-ready': pageReady }">
+    <section class="company-pro-shell">
+      <header class="company-page-intro company-reveal company-reveal--1">
+        <h1 class="company-page-title">
+          {{ company?.name || (loading ? 'Chargement...' : 'Entreprise') }}
+        </h1>
+        <p class="company-page-subtitle">
+          Consultez et gérez les dossiers clients de cette entreprise.
+        </p>
       </header>
 
-      <section class="clients-section-pro">
-        <div class="section-head-pro">
-          <div>
+      <section class="company-main-panel company-reveal company-reveal--2">
+        <div class="company-toolbar">
+          <div class="company-toolbar-title">
             <h2>Clients</h2>
-            <p>Gérez les dossiers enregistrés pour cette entreprise.</p>
+            <span class="company-meta-pill">{{ clientCountLabel }}</span>
+            <span v-if="clients.length" class="company-meta-pill company-meta-pill--muted">
+              Total {{ totalAmountLabel }} $
+            </span>
           </div>
+
+          <button class="company-primary-btn" type="button" @click="openCreateModal">
+            Ajouter un client
+          </button>
         </div>
 
-        <p v-if="loading">Chargement...</p>
-
-        <p v-if="errorMessage && !showCreateModal" class="message-error">
+        <p v-if="successMessage && !showCreateModal" class="company-inline-msg success">
+          {{ successMessage }}
+        </p>
+        <p v-if="errorMessage && !showCreateModal" class="company-inline-msg error">
           {{ errorMessage }}
         </p>
 
-        <div v-if="!loading && clients.length === 0" class="empty-state-pro">
-          <h3>Aucun client</h3>
-          <p>Commencez par ajouter votre premier dossier client avec le bouton +.</p>
+        <div v-if="loading" class="company-empty">
+          <div class="company-loading-dots" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <p>Chargement des clients...</p>
         </div>
 
-        <div v-else-if="!loading" class="table-shell">
-          <table class="clients-table">
+        <div v-else-if="clients.length === 0" class="company-empty">
+          <div class="company-empty-icon" aria-hidden="true"></div>
+          <h3>Aucun client</h3>
+          <p>Ajoutez votre premier dossier pour démarrer le suivi de cette entreprise.</p>
+          <button class="company-primary-btn" type="button" @click="openCreateModal">
+            Ajouter un client
+          </button>
+        </div>
+
+        <div v-else class="company-table-wrap">
+          <table class="company-client-table">
             <thead>
               <tr>
-                <th>Nom complet</th>
+                <th>Client</th>
                 <th>Date</th>
                 <th>Montant</th>
                 <th>Marchandise</th>
                 <th>Poids</th>
-                <th>Actions</th>
+                <th class="align-right">Actions</th>
               </tr>
             </thead>
-
             <tbody>
-              <tr v-for="client in clients" :key="client.id">
-                <td>{{ client.prenom }} {{ client.nom }}</td>
-                <td>{{ formatDate(client.date_transaction) }}</td>
-                <td>{{ formatMoney(client.montant) }}</td>
-                <td>{{ client.marchandise || '-' }}</td>
-                <td>{{ formatMoney(client.poids) }}</td>
+              <tr
+                v-for="(client, index) in clients"
+                :key="client.id"
+                :style="{ '--row-delay': `${index * 40}ms` }"
+              >
                 <td>
-                  <div class="table-actions">
+                  <div class="client-identity">
+                    <span class="client-mark">{{ clientInitial(client) }}</span>
+                    <div>
+                      <strong>{{ client.prenom }} {{ client.nom }}</strong>
+                      <span>Dossier client</span>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ formatDate(client.date_transaction) }}</td>
+                <td class="number-cell">{{ formatMoney(client.montant) }} $</td>
+                <td>{{ client.marchandise || '-' }}</td>
+                <td class="number-cell">{{ formatMoney(client.poids) }}</td>
+                <td>
+                  <div class="company-row-actions">
                     <button
-                      class="table-action-btn"
+                      class="company-row-btn"
                       type="button"
                       @click="viewClient(client)"
                     >
                       Voir
                     </button>
                     <button
-                      class="table-action-btn"
+                      class="company-row-btn"
                       type="button"
                       @click="editClient(client)"
                     >
                       Modifier
                     </button>
                     <button
-                      class="table-action-btn danger"
+                      class="company-row-btn danger"
                       type="button"
                       @click="deleteClient(client)"
                     >
@@ -395,154 +433,128 @@ onMounted(async () => {
           </table>
         </div>
       </section>
-
-      <button
-        class="floating-add-btn"
-        type="button"
-        aria-label="Ajouter un client"
-        @click="openCreateModal"
-      >
-        +
-      </button>
-
-      <div
-        v-if="showCreateModal"
-        class="modal-overlay"
-        @click.self="closeCreateModal"
-      >
-        <div class="modal-card">
-          <div class="modal-head">
-            <div>
-              <p class="company-overline">
-                {{ isEditing ? 'Modification' : 'Nouveau dossier' }}
-              </p>
-              <h2>{{ isEditing ? 'Modifier un client' : 'Ajouter un client' }}</h2>
-            </div>
-
-            <button class="modal-close" type="button" @click="closeCreateModal">
-              ×
-            </button>
-          </div>
-
-          <form class="modal-form-grid" @submit.prevent="handleSubmit">
-            <div class="field-group">
-              <label class="field-label">Nom</label>
-              <input v-model="form.nom" class="input-pro" type="text" required />
-            </div>
-
-            <div class="field-group">
-              <label class="field-label">Prénom</label>
-              <input
-                v-model="form.prenom"
-                class="input-pro"
-                type="text"
-                required
-              />
-            </div>
-
-            <div class="field-group">
-              <label class="field-label">Date de transaction</label>
-              <input
-                v-model="form.date_transaction"
-                class="input-pro"
-                type="date"
-                required
-              />
-            </div>
-
-            <div class="field-group">
-              <label class="field-label">Montant</label>
-              <input
-                v-model="form.montant"
-                class="input-pro"
-                type="number"
-                min="0"
-                step="0.01"
-                required
-              />
-            </div>
-
-            <div class="field-group modal-full">
-              <label class="field-label">Marchandise</label>
-              <input
-                v-model="form.marchandise"
-                class="input-pro"
-                type="text"
-                required
-              />
-            </div>
-
-            <div class="field-group">
-              <label class="field-label">Poids</label>
-              <input
-                v-model="form.poids"
-                class="input-pro"
-                type="number"
-                min="0"
-                step="0.01"
-                required
-              />
-            </div>
-
-            <div class="field-group">
-              <label class="field-label">
-                Pièce d’identité
-                <span v-if="isEditing"> (optionnel)</span>
-              </label>
-              <input
-                class="input-pro"
-                type="file"
-                accept="image/*,.pdf"
-                @change="handleIdDocumentChange"
-                :required="!isEditing"
-              />
-            </div>
-
-            <div class="field-group modal-full">
-              <label class="field-label">
-                Contrat signé
-                <span v-if="isEditing"> (optionnel)</span>
-              </label>
-              <input
-                class="input-pro"
-                type="file"
-                accept="image/*,.pdf"
-                @change="handleSignedContractChange"
-                :required="!isEditing"
-              />
-            </div>
-
-            <div class="modal-actions modal-full">
-              <button class="primary-btn-pro" type="submit" :disabled="submitting">
-                {{
-                  submitting
-                    ? isEditing
-                      ? 'Mise à jour...'
-                      : 'Enregistrement...'
-                    : isEditing
-                      ? 'Mettre à jour'
-                      : 'Enregistrer'
-                }}
-              </button>
-
-              <button
-                class="secondary-btn-pro"
-                type="button"
-                @click="closeCreateModal"
-              >
-                Annuler
-              </button>
-            </div>
-          </form>
-
-          <p v-if="successMessage" class="message-success">
-            {{ successMessage }}
-          </p>
-          <p v-if="errorMessage" class="message-error">
-            {{ errorMessage }}
-          </p>
-        </div>
-      </div>
     </section>
+
+    <Teleport to="body">
+      <Transition name="company-modal">
+        <div
+          v-if="showCreateModal"
+          class="company-modal-overlay"
+          @click.self="closeCreateModal"
+        >
+          <div class="company-modal-card" role="dialog" aria-modal="true">
+            <div class="company-modal-head">
+              <div>
+                <h2>{{ isEditing ? 'Modifier un client' : 'Ajouter un client' }}</h2>
+                <p>
+                  {{
+                    isEditing
+                      ? 'Mettez à jour les informations du dossier.'
+                      : 'Renseignez les informations et joignez les documents requis.'
+                  }}
+                </p>
+              </div>
+              <button class="company-modal-close" type="button" @click="closeCreateModal">
+                ×
+              </button>
+            </div>
+
+            <form class="company-modal-form" @submit.prevent="handleSubmit">
+              <div class="company-field">
+                <label>Nom</label>
+                <input v-model="form.nom" type="text" required />
+              </div>
+
+              <div class="company-field">
+                <label>Prénom</label>
+                <input v-model="form.prenom" type="text" required />
+              </div>
+
+              <div class="company-field">
+                <label>Date de transaction</label>
+                <input v-model="form.date_transaction" type="date" required />
+              </div>
+
+              <div class="company-field">
+                <label>Montant</label>
+                <input
+                  v-model="form.montant"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              <div class="company-field company-full">
+                <label>Marchandise</label>
+                <input v-model="form.marchandise" type="text" required />
+              </div>
+
+              <div class="company-field">
+                <label>Poids</label>
+                <input
+                  v-model="form.poids"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  required
+                />
+              </div>
+
+              <div class="company-field">
+                <label>
+                  Pièce d’identité
+                  <span v-if="isEditing"> (optionnel)</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  :required="!isEditing"
+                  @change="handleIdDocumentChange"
+                />
+              </div>
+
+              <div class="company-field company-full">
+                <label>
+                  Contrat signé
+                  <span v-if="isEditing"> (optionnel)</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  :required="!isEditing"
+                  @change="handleSignedContractChange"
+                />
+              </div>
+
+              <div class="company-modal-actions company-full">
+                <button class="company-secondary-btn" type="button" @click="closeCreateModal">
+                  Annuler
+                </button>
+                <button class="company-primary-btn" type="submit" :disabled="submitting">
+                  {{
+                    submitting
+                      ? isEditing
+                        ? 'Mise à jour...'
+                        : 'Enregistrement...'
+                      : isEditing
+                        ? 'Mettre à jour'
+                        : 'Enregistrer'
+                  }}
+                </button>
+              </div>
+            </form>
+
+            <p v-if="successMessage" class="company-inline-msg success">
+              {{ successMessage }}
+            </p>
+            <p v-if="errorMessage" class="company-inline-msg error">
+              {{ errorMessage }}
+            </p>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </main>
 </template>

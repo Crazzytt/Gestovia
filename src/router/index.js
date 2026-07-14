@@ -26,7 +26,7 @@ const routes = [
     path: '/companies/:id',
     name: 'company',
     component: CompanyView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, layout: 'marketing' },
   },
 
   // Route détail client

@@ -35,7 +35,6 @@ const goHome = async () => {
           <a href="/" class="site-footer-home" @click.prevent="goHome">Accueil</a>
           <RouterLink to="/#features">Fonctionnalités</RouterLink>
           <RouterLink to="/login">Connexion</RouterLink>
-          <RouterLink to="/login">Demander un accès</RouterLink>
         </nav>
       </div>
 
