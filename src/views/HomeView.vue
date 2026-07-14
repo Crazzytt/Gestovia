@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue'
+import heroAmbient from '../assets/home/hero-ambient.png'
 
 const pageRef = ref(null)
 let observer = null
@@ -47,6 +48,18 @@ onUnmounted(() => {
 <template>
   <main ref="pageRef" class="home-page">
     <section class="hero-section">
+      <div class="home-hero-media" aria-hidden="true">
+        <img
+          class="home-hero-media-img"
+          :src="heroAmbient"
+          alt=""
+          width="1920"
+          height="1080"
+          decoding="async"
+          fetchpriority="high"
+        />
+        <div class="home-hero-media-veil"></div>
+      </div>
       <div class="home-hero-glow" aria-hidden="true"></div>
       <div class="home-hero-glow home-hero-glow-2" aria-hidden="true"></div>
 

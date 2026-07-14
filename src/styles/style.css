@@ -948,8 +948,41 @@ button.nav-link {
   overflow: hidden;
 }
 
+.home-hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.home-hero-media-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1.08);
+  opacity: 0;
+  filter: saturate(0.92) brightness(1.04);
+  transition: opacity 900ms var(--ease-soft);
+  animation: homeHeroKenBurns 22s var(--ease-soft) infinite alternate;
+}
+
+.home-page.is-hero-ready .home-hero-media-img {
+  opacity: 0.55;
+}
+
+.home-hero-media-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(248, 251, 255, 0.72) 0%, rgba(248, 251, 255, 0.55) 42%, rgba(238, 243, 249, 0.88) 100%),
+    linear-gradient(90deg, rgba(248, 251, 255, 0.7) 0%, rgba(248, 251, 255, 0.28) 48%, rgba(248, 251, 255, 0.45) 100%);
+}
+
 .home-hero-glow {
   position: absolute;
+  z-index: 0;
   width: 520px;
   height: 520px;
   border-radius: 50%;
@@ -1417,6 +1450,15 @@ button.nav-link {
   }
 }
 
+@keyframes homeHeroKenBurns {
+  0% {
+    transform: scale(1.08) translate3d(0, 0, 0);
+  }
+  100% {
+    transform: scale(1.16) translate3d(-2.2%, -1.4%, 0);
+  }
+}
+
 @keyframes homeOrbitBreathe {
   0%, 100% {
     opacity: 0.7;
@@ -1773,5 +1815,11 @@ button.nav-link {
   .home-hero-glow,
   .hero-visual-orbit {
     display: none;
+  }
+
+  .home-hero-media-img {
+    animation: none !important;
+    opacity: 0.45 !important;
+    transform: scale(1.05) !important;
   }
 }
