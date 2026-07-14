@@ -34,7 +34,7 @@ const routes = [
     path: '/companies/:companyId/clients/:clientId',
     name: 'client-detail',
     component: () => import('../views/ClientDetailView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, layout: 'marketing' },
   },
 ]
 
