@@ -101,7 +101,7 @@ onUnmounted(() => {
       class="home-container site-footer-bottom"
       :style="isLoggedIn ? 'display:flex;justify-content:center;text-align:center;' : ''"
     >
-      <p class="site-footer-legal">&copy; {{ year }} Gestovia. Tous droits réservés.</p>
+      <p class="site-footer-legal">&copy; {{ year }} Tresor Kimou & Robert Kouassi, Gestovia. Tous droits réservés.</p>
     </div>
   </footer>
 </template>

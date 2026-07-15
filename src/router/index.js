@@ -13,6 +13,7 @@ const routes = [
     name: 'dashboard',
     component: DashboardView,
     meta: { requiresAuth: true, layout: 'marketing' },
+
   },
   {
     path: '/company/:id',
@@ -30,6 +31,12 @@ const routes = [
     component: () => import('../views/ClientDetailView.vue'),
     meta: { requiresAuth: true, layout: 'marketing' },
   },
+  {
+  path: '/profile',
+  name: 'profile',
+  component: () => import('../views/ProfileView.vue'),
+}
+
 ]
 
 const router = createRouter({

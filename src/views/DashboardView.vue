@@ -12,6 +12,7 @@ const companies = ref([])
 const companyName = ref('')
 const loading = ref(true)
 const creating = ref(false)
+const deletingCompanyId = ref(null)
 const pageReady = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
@@ -40,7 +41,10 @@ const dashboardStats = computed(() => [
   {
     label: 'Compte',
     value: user.value && user.value.id !== 'demo-user' ? 'Actif' : 'Démo',
-    hint: user.value && user.value.id !== 'demo-user' ? 'session authentifiée' : 'mode démonstration',
+    hint:
+      user.value && user.value.id !== 'demo-user'
+        ? 'session authentifiée'
+        : 'mode démonstration',
   },
 ])
 
@@ -133,6 +137,35 @@ const createCompany = async () => {
     errorMessage.value = error.message || 'Erreur lors de la création de l’entreprise.'
   } finally {
     creating.value = false
+  }
+}
+
+const deleteCompany = async (company) => {
+  successMessage.value = ''
+  errorMessage.value = ''
+
+  const confirmed = window.confirm(
+    `Voulez-vous vraiment supprimer l’entreprise "${company.name}" ?`,
+  )
+
+  if (!confirmed) return
+
+  deletingCompanyId.value = company.id
+
+  try {
+    const { error } = await supabase
+      .from('companies')
+      .delete()
+      .eq('id', company.id)
+
+    if (error) throw error
+
+    companies.value = companies.value.filter((item) => item.id !== company.id)
+    successMessage.value = 'Entreprise supprimée avec succès.'
+  } catch (error) {
+    errorMessage.value = error.message || 'Erreur lors de la suppression de l’entreprise.'
+  } finally {
+    deletingCompanyId.value = null
   }
 }
 
@@ -288,13 +321,24 @@ onMounted(async () => {
 
                 <span class="status-badge">Active</span>
 
-                <button
-                  class="dashboard-row-btn"
-                  type="button"
-                  @click="openCompany(company.id)"
-                >
-                  Ouvrir
-                </button>
+                <div class="dashboard-row-actions">
+                  <button
+                    class="dashboard-row-btn"
+                    type="button"
+                    @click="openCompany(company.id)"
+                  >
+                    Ouvrir
+                  </button>
+
+                  <button
+                    class="dashboard-row-btn dashboard-row-btn-danger"
+                    type="button"
+                    :disabled="deletingCompanyId === company.id"
+                    @click="deleteCompany(company)"
+                  >
+                    {{ deletingCompanyId === company.id ? 'Suppression...' : 'Supprimer' }}
+                  </button>
+                </div>
               </li>
             </TransitionGroup>
           </div>

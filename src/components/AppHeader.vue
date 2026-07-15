@@ -139,6 +139,9 @@ onUnmounted(() => {
               <button type="button" class="header-user-item is-danger" @click="handleLogout">
                 Se déconnecter
               </button>
+              <RouterLink to="/profile" class="header-user-item">
+               Mon profil
+              </RouterLink>
             </div>
           </div>
         </div>
